@@ -1,0 +1,148 @@
+---
+- name: Load variables from vars.yaml
+  include_vars:  "vars.yaml"  
+  no_log: "no"
+
+
+- name: Add package-cloud rabbitmq-erlang rpm key
+  ansible.builtin.rpm_key:
+    key: https://packagecloud.io/rabbitmq/erlang/gpgkey
+    state: present
+  become: True
+
+
+- name: Add package-cloud rabbitmq-server rpm key
+  ansible.builtin.rpm_key:
+    key: https://packagecloud.io/rabbitmq/rabbitmq-server/gpgkey
+    state: present
+  become: True
+
+
+- name: Add package-cloud rabbitmq-erlang repo
+  yum_repository:
+    name: rabbitmq_erlang
+    enabled: True
+    repo_gpgcheck: True
+    sslverify: True
+    gpgkey: https://packagecloud.io/rabbitmq/erlang/gpgkey
+    state: present
+    gpgcheck: False
+    metadata_expire: "300"
+    baseurl: https://packagecloud.io/rabbitmq/erlang/el/$releasever/$basearch
+    description: RabbitMQ-Erlang Repo
+  become: True
+
+
+- name: Add package-cloud rabbitmq-server repo
+  yum_repository:
+    name: rabbitmq_rabbitmq-server
+    enabled: True
+    repo_gpgcheck: True
+    sslverify: True
+    gpgkey: https://packagecloud.io/rabbitmq/rabbitmq-server/gpgkey
+    state: present
+    gpgcheck: False
+    metadata_expire: "300"
+    baseurl: https://packagecloud.io/rabbitmq/rabbitmq-server/el/$releasever/$basearch
+    description: RabbitMQ-Server Repo
+  become: True
+
+
+- name: Install rabbitmq-server dependencies
+  yum:
+    name: libselinux-python
+    state: present
+  become: True
+
+
+- name: Install rabbitmq-server version 3.8.17-1
+  ansible.builtin.command: yum install -y rabbitmq-server-3.8.17-1.el7.noarch
+  become: True
+
+
+- name: Set permissions for rabbit to write to /var/lib/rabbitmq
+  file:
+    path: /var/lib/rabbitmq
+    state: directory
+    mode: 0775
+    recurse: Yes
+    owner: rabbitmq
+    group: rabbitmq
+  become: True
+
+
+- name: Set permissions for rabbit to write to /var/log/rabbitmq
+  file:
+    path: /var/log/rabbitmq
+    state: directory
+    mode: 0775
+    recurse: Yes
+    owner: rabbitmq
+    group: rabbitmq
+  become: True
+
+
+- name: Copy the rabbitmq configuration file
+  template:
+    src: rabbitmq.conf.j2
+    dest: /etc/rabbitmq/rabbit.conf
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0775"
+    backup: True
+  become: True
+
+
+- name: Copy the rabbitmq env file
+  template:
+    src: rabbitmq_env.conf.j2
+    dest: /etc/rabbitmq/rabbitmq_env.conf
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0775"
+    backup: True
+  become: True
+
+
+- name: Copy erlang cookie to the root users home directory
+  template:
+    src: erlang.cookie.j2
+    dest: /root/.erlang_cookie
+    owner: rabbitmq
+    group: rabbitmq
+    mode: "0400"
+    backup: True
+  become: True
+
+
+- name: Start rabbitmq with systemctl
+  ansible.builtin.systemd:
+    state: started
+    name: rabbitmq-server
+  become: True
+
+
+- name: Enable the rabbitmq managment console located on port 15672
+  ansible.builtin.command: rabbitmq-plugins enable rabbitmq_management
+  become: True
+
+
+- name: Start the rabbimq node
+  ansible.builtin.command: rabbitmqctl start_app
+  become: True
+
+
+- name: Create the rabbitmq management account
+  ansible.builtin.command: "rabbitmqctl add_user {{ rabbit_username }} {{ rabbit_user_password }}"
+  become: True
+
+
+
+- name: Add permissions to the created rabbitmq user account
+  ansible.builtin.command: 'rabbitmqctl set_permissions -p / {{ rabbit_username }}  ".*" ".*" ".*"'
+  become: True
+
+
+- name: Add administrator tag to the created rabbitmq user account
+  ansible.builtin.command: "rabbitmqctl set_user_tags {{ rabbit_username }} administrator"
+  become: True

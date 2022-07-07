@@ -1,0 +1,5 @@
+rabbit_username: "test_user"
+
+rabbit_user_password: "password"
+
+rabbitmq_erlang_cookie: "f1qsnSn87rpZ34ggh"

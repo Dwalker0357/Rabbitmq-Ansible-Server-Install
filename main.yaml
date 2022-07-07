@@ -1,0 +1,8 @@
+---
+
+- hosts: rabbitmq_hosts
+
+# All Variables for each role are stored in vars.yaml 
+
+  roles:
+    - rabbitmq
